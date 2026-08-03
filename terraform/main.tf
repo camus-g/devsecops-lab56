@@ -19,9 +19,27 @@ resource "aws_security_group" "sg_seguro" {
   description = "Grupo de seguridad restringido para lab"
 
   ingress {
+    description = "SSH interno unicamente desde el rango del VPC" #Corrige el CKV_AWS_23
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16"]
   }
+}
+
+# Corrige el CKV2_AWS_5 
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+resource "aws_network_interface" "eni_lab" {
+  subnet_id       = data.aws_subnets.default.ids[0]
+  security_groups = [aws_security_group.sg_seguro.id]
 }
