@@ -148,3 +148,4 @@ jobs:
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
           cosign sign --yes "$IMAGE_REF"
+          
