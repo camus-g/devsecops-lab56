@@ -1,4 +1,4 @@
-    name: Pipeline DevSecOps End-to-End
+name: Pipeline DevSecOps End-to-End
  
 on:
   push:
@@ -171,4 +171,4 @@ jobs:
       - name: Firmar Imagen mediante Sigstore (OIDC Keyless)
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
-          cosign sign --yes "$IMAGE_REF"    
+          cosign sign --yes "$IMAGE_REF"
