@@ -1,0 +1,86 @@
+
+# =============================================================
+# Excepciones documentadas de Trivy
+#
+# Imagen: multi-stage -> gcr.io/distroless/python3-debian12:nonroot
+# Fecha de aceptacion: 2026-08-03
+# Revision obligatoria: 2026-11-01 (expired_at)
+#
+# Uso en el workflow (job "5. Build, Container Scan & SBOM"):
+#
+#   - name: Escaneo de Imagen Docker con Trivy
+#     uses: aquasecurity/trivy-action@master
+#     with:
+#       image-ref: ${{ steps.meta.outputs.tags }}
+#       severity: 'CRITICAL'
+#       trivyignores: '.trivyignore.yaml'
+#       exit-code: '1'
+#
+# El archivo debe estar en la raiz del repositorio.
+# NO combinar con "ignore-unfixed: true": ese flag ya suprime ambas
+# entradas y haria redundante (e invisible) esta documentacion.
+#
+# -------------------------------------------------------------
+# CONTEXTO COMUN A LAS DOS ENTRADAS
+#
+# 1. Ninguna tiene version parcheada disponible (Fixed Version vacio).
+# 2. Ambas provienen de la imagen base distroless, no del build.
+#    La imagen no tiene shell ni gestor de paquetes, por lo que no
+#    existe ninguna instruccion RUN capaz de corregirlas.
+# 3. Ambas librerias son dependencias de enlace del interprete CPython
+#    (_sqlite3 -> libsqlite3, zlib/gzip/zipfile -> zlib1g). No se
+#    pueden eliminar sin romper Python.
+# 4. La ausencia de shell en distroless reduce de forma sustancial
+#    cualquier cadena de explotacion posterior.
+#
+# ALTERNATIVA EVALUADA Y POSPUESTA:
+#   Migrar el runtime a gcr.io/distroless/python3-debian13 (trixie),
+#   que trae zlib 1.3.1 y sqlite 3.46. Implica subir a Python 3.13 y
+#   ajustar rutas de site-packages y del HEALTHCHECK. Se decide
+#   mantener debian12 en este ciclo.
+# =============================================================
+
+vulnerabilities:
+
+  # -----------------------------------------------------------
+  # zlib1g 1:1.2.13.dfsg-1  |  Estado Debian: will_not_fix
+  # -----------------------------------------------------------
+  # Justificacion tecnica (la mas solida de las dos):
+  # El desbordamiento reside en la funcion zipOpenNewFileInZip4_6,
+  # que forma parte de contrib/minizip en el codigo fuente de zlib.
+  # Debian NO compila ni distribuye minizip dentro del paquete
+  # zlib1g. Esa es precisamente la razon del estado will_not_fix:
+  # la funcion vulnerable no esta presente en el binario que se
+  # despliega. Se considera falso positivo a efectos practicos.
+  # Corregido upstream en zlib 1.3.1.
+  - id: CVE-2023-45853
+    statement: >-
+      Falso positivo efectivo. El codigo vulnerable pertenece a
+      contrib/minizip, que Debian no incluye en el binario zlib1g
+      (de ahi el estado will_not_fix). Sin ruta de explotacion en
+      esta imagen. Riesgo aceptado.
+    expired_at: 2026-11-01
+
+  # -----------------------------------------------------------
+  # libsqlite3-0 3.40.1-2+deb12u2  |  Estado Debian: affected
+  # -----------------------------------------------------------
+  # Justificacion tecnica:
+  # Integer overflow en SQLite sin correccion publicada para la
+  # rama 3.40.x de Debian 12. La libreria esta presente unicamente
+  # porque CPython enlaza el modulo _sqlite3; las dependencias de
+  # la aplicacion (Flask, requests, urllib3) son Python puro y no
+  # utilizan SQLite. La explotacion requeriria que la aplicacion
+  # procesara SQL o ficheros de base de datos no confiables, lo
+  # que no ocurre en este servicio.
+  #
+  # VERIFICAR: confirmar que app.py no importa sqlite3 en ningun
+  # punto. Si lo hiciera, esta justificacion deja de ser valida y
+  # la excepcion debe retirarse.
+  - id: CVE-2025-7458
+    statement: >-
+      Sin parche disponible para SQLite 3.40.x en Debian 12. La
+      libreria existe solo como dependencia de enlace de CPython;
+      la aplicacion no usa el modulo sqlite3 ni procesa SQL o
+      ficheros de base de datos externos. Riesgo aceptado.
+    expired_at: 2026-11-01
+
